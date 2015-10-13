@@ -1,3 +1,6 @@
+import fltk
+import sys
+
 # global variables
 
 changed = False

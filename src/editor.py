@@ -1,310 +1,125 @@
-import fltk
-import sys
+import wx
+import os.path
 
-# global variables
+class MainWindow( wx.Frame ):
+    def __init__( self, filename = 'noname.txt' ):
+        super( MainWindow, self ).__init__( None, size = ( 800,640 ) )
+        self.filename = filename
+        self.dirname = '.'
+        # wx.Frame.__init__( self, None, -1, 'ATE', size = ( 800, 640 ) )
 
-changed = False
-filename = ""
-title = ""
-textbuf = None
-editor = None
+        self.panel = wx.Panel( self, -1 )
 
-# main window
+        self.CreateInteriorWindowComponents()
 
-class EditorWindow(Fl_Double_Window):
-	search = ""
-	def __init__(self, w, h, label):
-		Fl_Double_Window.__init__(self, w, h, label)
+        sizer = wx.BoxSizer()
+        sizer.Add( self.multiText, proportion = 1, flag = wx.CENTER|wx.EXPAND )
+        self.panel.SetSizer( sizer )
 
-# menubars and menus
+        # self.CreateStatusBar()
+        self.CreateExteriorWindowComponents()
 
-menuitems = (( "&File",		0, 0, 0, FL_SUBMENU ),
-		( "&New File",			0, new_cb ),
-		( "&Open File...",		FL_CTRL + ord('o'), open_cb ),
-		( "&Insert File...",	FL_CTRL + ord('i'), insert_cb, 0, FL_MENU_DIVIDER ),
-		( "&Save File...",		FL_CTRL + ord('s'), save_cb ),
-		( "&Save File &As...",	FL_CTRL + FL_SHIFT + ord('s'), saveas_cb, 0, FL_MENU_DIVIDER ),
-		( "New &View",			FL_ALT + ord('v'), view_cb, 0 ),
-		( "&Close View",		FL_CTRL + ord('w'), close_cb, 0, FL_MENU_DIVIDER ),
-		( "E&xit",				FL_CTRL + ord('q'), quit_cb, 0),
-		( None, 0 ),
+        self.multiText.Bind( wx.EVT_KEY_UP, self.updateLineCol )
+        self.multiText.Bind( wx.EVT_LEFT_DOWN, self.updateLineCol )
 
-	( "&Edit",	0, 0, 0, FL_SUBMENU ),
-		( "Cu&t",		FL_CTRL + ord('x'), cut_cb),
-		( "&Copy",		FL_CTRL + ord('c'), copy_cb),
-		( "&Paste",		FL_CTRL + ord('v'), paste_cb),
-		( "&Delete",	0, delete_cb ),
-		( None, 0 ),
+    def CreateInteriorWindowComponents( self ):
+        self.multiText = wx.TextCtrl( self.panel, style = wx.TE_MULTILINE )
 
-	( "&Search",		0, 0, 0, FL_SUBMENU ),
-		( "&Find...",		FL_CTRL + ord('f'), find_cb ),
-		( "F&ind Again",	FL_CTRL + ord('g'), find2_cb ),
-		( "&Replace...",	FL_CTRL + ord('r'), replace_cb ),
-		( "Re&place Again",	FL_CTRL + ord('t'), replace2_cb ),
-		( None, 0 )
-)
+    def updateLineCol( self, event ):
+        #lineNum = len( self.multiText.GetRange( 0, self.multiText.GetInsertionPoint() ).split( "\n" ) )
+        l,c = self.multiText.PositionToXY( self.multiText.GetInsertionPoint() )
 
-# editing the text
+        stat = "col=%s, row=%s" % ( l,c )
 
-# add menus
-m = Fl_Menu_Bar(0, 0, 660, 30);
-m.copy(menuitems)
+        self.StatusBar.SetStatusText( stat, number = 0 )
 
-# text widget
-w.editor = Fl_Text_Editor(0, 30, 660, 370);
-w.editor.buffer(textbuf)
+        event.Skip()
 
-# track of changes
-textbuf.add_modify_callback(changed_cb, w)
-textbuf.call_modify_callbacks()
+    def CreateExteriorWindowComponents( self ):
+        self.CreateMenu()
+        self.CreateStatusBar()
+        self.SetTitle()
 
-# mono-spaced font (FL_COURIER)
-w.editor.textfont(FL_COURIER)
 
-# replace dialog
+    def CreateMenu( self ):
+        fileMenu = wx.Menu()
+        for id, label, helpText, handler in \
+            [( wx.ID_OPEN, '&Open', 'Open a new file', self.OnOpen ),
+             ( wx.ID_SAVE, '&Save', 'Save the current file', self.OnSave ),
+             ( wx.ID_SAVEAS, 'Save &As', 'Save the file under a different name',
+                self.OnSaveAs ),
+             ( None, None, None, None ),
+             ( wx.ID_EXIT, 'E&xit', 'Terminate the program', self.OnExit )]:
+            if id == None:
+                fileMenu.AppendSeparator()
+            else:
+                item = fileMenu.Append( id, label, helpText )
+                self.Bind( wx.EVT_MENU, handler, item )
 
-self.replace_dlg = Fl_Window(300, 105, "Replace")	# replace dialog window
-self.replace_find = Fl_Input(80, 10, 210, 25, "Find:")
-self.replace_with = Fl_Input(80, 40, 210, 25, "Replace:")
-self.replace_all = Fl_Button(10, 70, 90, 25, "Replace All")
-self.replace_next = Fl_Return_Button(105, 70, 120, 25, "Replace Next")
-self.replace_cancel = Fl_Button(230, 70, 60, 25, "Cancel")
+        aboutMenu = wx.Menu()
+        for id, label, helpText, handler in \
+            [( wx.ID_ABOUT, '&About', 'Information about this program',
+                self.OnAbout )]:
+            if id == None:
+                aboutMenu.AppendSeparator()
+            else:
+                item = aboutMenu.Append( id, label, helpText )
+                self.Bind( wx.EVT_MENU, handler, item )
 
-# callbacks
+        menuBar = wx.MenuBar()
+        menuBar.Append( fileMenu, '&File' ) # Add the fileMenu to the MenuBar
+        menuBar.Append( aboutMenu, '&About' )
+        self.SetMenuBar( menuBar )  # Add the menuBar to the Frame
 
-# called whenever the user changes any text in the editor widget
-def changed_cb(il, nInserted, nDeleted, i2, cl, editor):
-	global changed, loading
-	if (nInserted != 0 or nDeleted != 0) and loading == False:
-		changed = True
-	set_title(editor);	# set changed status in the title bar
-	if loading:
-		editor.editor.show_insert_position()
+    def SetTitle( self ):
+        super( MainWindow, self ).SetTitle( 'ATE %s'%self.filename )
 
-# kf_copy() to copy the clipboard text
-def copy_cb(widget):
-	global editor
-	Fl_Text_Editor.kf_copy(0, editor.editor)
+    # helper methods
 
-# kf_cut() to cut text
-def cut_cb(widget):
-	global editor
-	Fl_Text_Editor.kf_cut(0, editor.editor)
+    def defaultFileDialogOptions( self ):
+        return dict( message = 'Choose a file', defaultDir = self.dirname,
+            wildcard = '*.*' )
 
-# remove_selection() deletes current selected text
-def delete_cb(widget):
-	global textbuf
-	textbuf.remove_selection()
+    def askUserForFilename (self, **dialogOptions ):
+        dialog = wx.FileDialog( self, **dialogOptions )
+        if dialog.ShowModal() == wx.ID_OK:
+            userProvidedFilename = True
+            self.filename = dialog.GetFilename()
+            self.dirname = dialog.GetDirectory()
+            self.SetTitle()
+        else:
+            userProvidedFilename = False
+        dialog.Destroy()
+        return userProvidedFilename
 
-# search string using the fl_input()
-def find_cb(widget):
-	global editor
-	val = fl_input("Search String:", editor.search)
-	if val != None:
-		# User entered a string - go find it!
-		editor.search = val
-		find2_cb(widget)
+    # event handlers
 
-# find next occurrence of the search string
-def find2_cb(widget):
-	global editor
-	if editor.search[0] == 0:
-		# Search string is blank; get a new one...
-		find_cb(widget, editor)
-		return
+    def OnAbout( self, event ):
+        dialog = wx.MessageDialog( self, 'A sample editor\n'
+            'in wxPython', 'About Sample Editor', wx.OK )
+        dialog.ShowModal()
+        dialog.Destroy()
 
-	pos = editor.editor.insert_position();
-	(found, pos) = textbufl.search_forward(pos, editor.search);
-	if found != 0:
-		# Found a match; select and update the position...
-		textbuf.select(pos, pos+len(editor.search))
-		editor.editor.insert_position(pos+len(editor.search))
-		editor.editor.show_insert_position()
-	else:
-		fl_alert("No occurrences of %s found!"%editor.search)
+    def OnExit( self, event ):
+        self.Close()
 
-# new file
-def new_cb(widget):
-	global filename, changed
-	if check_save() == 0:
-		return
-	filename = ""
-	textbuf.select(0, textbuf.length())
-	textbuf.remove_selection()
-	changed = False
-	textbuf.call_modify_callbacks()
+    def OnSave( self, event ):
+        textfile = open( os.path.join( self.dirname, self.filename ), 'w' )
+        textfile.write( self.multiText.GetValue() )
+        textfile.close()
 
-# open file
-def open_cb(widget):
-	global filename
-	if check_save() == 0:
-		return
-	newfile = fl_file_chooser("Open File?", "*", filename)
-	if newfile != None:
-		load_file(newfile, -1)
+    def OnOpen( self, event ):
+        if self.askUserForFilename( style = wx.OPEN, **self.defaultFileDialogOptions() ):
+            textfile = open( os.path.join( self.dirname, self.filename ), 'r' )
+            self.multiText.SetValue( textfile.read() )
+            textfile.close()
 
-# kf_paste()
-def paste_cb(widget):
-	global editor
-	Fl_Text_Editor.kf_paste(0, editor.editor)
+    def OnSaveAs( self, event ):
+        if self.askUserForFilename( defaultFile = self.filename, style = wx.SAVE,
+            **self.defaultFileDialogOptions() ):
+            self.OnSave( event )
 
-# exit
-def quit_cb(widget, data):
-	global changed
-	if changed and check_save() == 0:
-		return
-	sys.exit(0)
-
-# replace dialog
-def replace_cb(widget):
-	global editor
-	editor.replace_dlg.show()
-
-# replace next occurrence
-def replace2_cb(widget):
-	global editor
-	find = editor.replace_find.value()
-	replace = editor.replace_with.value()
-
-	if len(find) == 0:
-		editor.replace_dlg.show()
-		return
-
-	editor.replace_dlg.hide()
-
-	pos = editor.editor.insert_position()
-	(found, pos) = textbuf.search_forward(pos, find)
-
-	if found != 0:
-		# Found a match; update the position and replace text...
-		textbuf.select(pos, pos+len(find))
-		textbuf.remove_selection()
-		textbuf.insert(pos, replace)
-		textbuf.select(pos, pos+len(replace))
-		editor.editor.insert_position(pos+len(replace))
-		editor.editor.show_insert_position()
-	else:
-		fl_alert("No occurrences of %s found!"%find)
-
-# replace all occurences
-def replall_cb(widget):
-	global editor
-	find = editor.replace_find.value()
-	replaced = editor.replace_with.value()
-
-	if len(find) == 0:
-		editor.replace_dlg.show()
-		return
-
-	editor.replace_dlg.hide()
-	editor.editor.insert_position(0)
-	times = 0
-
-	found = 1
-	while found != 0:
-		pos = editor.editor.insert_position()
-		(found, pos) = textbuf.search_forward(pos, find)
-
-		if found != 0:
-			# Found a match; update the position and replace text...
-			textbuf.select(pos, pos+len(find))
-			textbuf.remove_selection()
-			textbuf.insert(pos, replace)
-			editor.editor.insert_position(pos+len(replace))
-			editor.editor.show_insert_position()
-			times += 1
-
-		if times > 0:
-			fl_message("Replaced %d occurrences."%times)
-		else:
-			fl_alert("No occurrences of %s found!"%find)
-
-# hide replace dialog
-def replcan_cb(widget):
-	global editor
-	editor.replace_dlg.hide()
-
-# save file
-def save_cb(widget):
-	global filename
-	if len(filename) == 0:
-		# No filename - get one!
-		saveas_cb()
-		return
-	else:
-		save_file(filename)
-
-# ask filename
-def saveas_cb(widget, data):
-	global filename
-	newfile = fl_file_chooser("Save File As?", "*", filename)
-	if newfile != None:
-		save_file(newfile)
-
-# Other functions
-
-# check if current file needs to be saved
-def check_save():
-	global changed
-	if not changed:
-		return
-
-	r = fl_choice("The current file has not been saved.\n"
-					"Would you like to save it now?",
-					"Cancel", "Save", "Don't Save")
-
-	if r == 1:
-		save_cb()
-		return not changed
-
-	if r == 2:
-		return 1
-	else:
-		return 0
-
-# load file to textbuf
-loading = False
-def load_file(newfile, ipos):
-	global changed, loading, filename
-	loading = True
-	if ipos != -1:
-		insert = 1
-		changed = True
-	else:
-		insert = 0
-		changed = True
-	if insert == 0:
-		filename = ""
-		r = textbuf.loadfile(newfile)
-	else:
-		r = textbuf.insertfile(newfile, ipos)
-	if r != 0:
-		fl_alert("Error reading from file %s."%newfile)
-	else:
-		if insert == 0:
-			filename = newfile
-	loading = False
-	textbuf.call_modify_callbacks()
-
-# set title (updating)
-def set_title(win):
-	global filename, title
-	if len(filename) == 0:
-		title = "Untitled"
-	else:
-		title = os.path.basename(filename)
-	if changed:
-		title = title+" (modified)"
-	win.label(title)
-
-# main
-textbuf = Fl_Text_Buffer()
-style_init()
-
-window = new_view()
-window.show(1, sys.argv)
-
-if len(sys.argv) > 1:
-	load_file(sys.argv[1], -1)
-
-Fl.run()
+app = wx.App()
+frame = MainWindow()
+frame.Show()
+app.MainLoop()

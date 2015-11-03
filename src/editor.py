@@ -2,7 +2,7 @@ import wx
 import os.path
 
 class MainWindow( wx.Frame ):
-    def __init__( self, filename = 'noname.txt' ):
+    def __init__( self, filename = '*.txt' ):
         super( MainWindow, self ).__init__( None, size = ( 800,640 ) )
         self.filename = filename
         self.dirname = '.'
@@ -104,9 +104,10 @@ class MainWindow( wx.Frame ):
         self.Close()
 
     def OnSave( self, event ):
-        textfile = open( os.path.join( self.dirname, self.filename ), 'w' )
-        textfile.write( self.multiText.GetValue() )
-        textfile.close()
+        if os.path.exists( self.filename ):
+            self.OnSaveFile( event )
+        else:
+            self.OnSaveAs( event )
 
     def OnOpen( self, event ):
         if self.askUserForFilename( style = wx.OPEN, **self.defaultFileDialogOptions() ):
@@ -114,10 +115,15 @@ class MainWindow( wx.Frame ):
             self.multiText.SetValue( textfile.read() )
             textfile.close()
 
+    def OnSaveFile( self, event ):
+        textfile = open( os.path.join( self.dirname, self.filename ), 'w' )
+        textfile.write( self.multiText.GetValue() )
+        textfile.close()
+
     def OnSaveAs( self, event ):
         if self.askUserForFilename( defaultFile = self.filename, style = wx.SAVE,
             **self.defaultFileDialogOptions() ):
-            self.OnSave( event )
+            self.OnSaveFile( event )
 
 app = wx.App()
 frame = MainWindow()

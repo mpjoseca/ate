@@ -6,7 +6,6 @@ class MainWindow( wx.Frame ):
         super( MainWindow, self ).__init__( None, size = ( 800,640 ) )
         self.filename = filename
         self.dirname = '.'
-        # wx.Frame.__init__( self, None, -1, 'ATE', size = ( 800, 640 ) )
 
         self.panel = wx.Panel( self, -1 )
 
@@ -16,7 +15,6 @@ class MainWindow( wx.Frame ):
         sizer.Add( self.multiText, proportion = 1, flag = wx.CENTER|wx.EXPAND )
         self.panel.SetSizer( sizer )
 
-        # self.CreateStatusBar()
         self.CreateExteriorWindowComponents()
 
         self.multiText.Bind( wx.EVT_KEY_UP, self.updateLineCol )
@@ -26,7 +24,6 @@ class MainWindow( wx.Frame ):
         self.multiText = wx.TextCtrl( self.panel, style = wx.TE_MULTILINE )
 
     def updateLineCol( self, event ):
-        #lineNum = len( self.multiText.GetRange( 0, self.multiText.GetInsertionPoint() ).split( "\n" ) )
         l,c = self.multiText.PositionToXY( self.multiText.GetInsertionPoint() )
 
         stat = "col=%s, row=%s" % ( l,c )
@@ -39,7 +36,6 @@ class MainWindow( wx.Frame ):
         self.CreateMenu()
         self.CreateStatusBar()
         self.SetTitle()
-
 
     def CreateMenu( self ):
         fileMenu = wx.Menu()
@@ -56,6 +52,16 @@ class MainWindow( wx.Frame ):
                 item = fileMenu.Append( id, label, helpText )
                 self.Bind( wx.EVT_MENU, handler, item )
 
+        editMenu = wx.Menu()
+        for id, label, helpText, handler in \
+            [( wx.ID_COPY, '&Copy', 'Copy selected text', self.OnCopy ),
+             ( wx.ID_PASTE, '&Paste', 'Paste clipboard text', self.OnPaste )]:
+            if id == None:
+                editMenu.AppendSeparator()
+            else:
+                item = editMenu.Append( id, label, helpText )
+                self.Bind( wx.EVT_MENU, handler, item )
+
         aboutMenu = wx.Menu()
         for id, label, helpText, handler in \
             [( wx.ID_ABOUT, '&About', 'Information about this program',
@@ -68,6 +74,7 @@ class MainWindow( wx.Frame ):
 
         menuBar = wx.MenuBar()
         menuBar.Append( fileMenu, '&File' ) # Add the fileMenu to the MenuBar
+        menuBar.Append( editMenu, '&Edit' )
         menuBar.Append( aboutMenu, '&About' )
         self.SetMenuBar( menuBar )  # Add the menuBar to the Frame
 
@@ -124,6 +131,26 @@ class MainWindow( wx.Frame ):
         if self.askUserForFilename( defaultFile = self.filename, style = wx.SAVE,
             **self.defaultFileDialogOptions() ):
             self.OnSaveFile( event )
+
+    # clipboard functions, flush for other programs
+    def OnCopy( self, event ):
+        self.dataObj = wx.TextDataObject()
+        self.dataObj.SetText( self.multiText.GetStringSelection() )
+        if wx.TheClipboard.Open():
+            wx.TheClipboard.SetData( self.dataObj )
+            wx.TheClipboard.Flush()
+        else:
+            wx.MessageBox( "Unable to open the clipboard", "Error" )
+
+    def OnPaste( self, event ):
+        if wx.TheClipboard.Open():
+            dataObj = wx.TextDataObject()
+            success = wx.TheClipboard.GetData( dataObj )
+            wx.TheClipboard.Flush()
+            wx.TheClipboard.Close()
+            if not success: return
+            text = dataObj.GetText()
+            if text: self.multiText.WriteText( text )
 
 app = wx.App()
 frame = MainWindow()
